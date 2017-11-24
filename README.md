@@ -32,3 +32,9 @@
 * pH는 잔류염소와 강한 상관관계가 있어 제외하여도 무관한 것으로 판단되며,Control Range 이내로 관리하면 되고 측정값 중 우수한 값을 정의할 수 없음  
   + Variables : 압력 / 수위 / 유량 / 유량적산차
   + 외부 Data 활용 : 수원 지역 일별 강수량 Data
+  
+  > 데이터 분석을 위한 참고 자료
+* [R에서 자유자재로 데이터 가공하기](http://rpubs.com/jmhome/R_data_wrangling)
+* [R에서 데이터 정제하기 (결측치,이상치)](http://rpubs.com/jmhome/R_data_processing)
+
+
