@@ -43,8 +43,6 @@
 - [R에서 통계기법을 이용한 가설 검정](http://rpubs.com/jmhome/StatisticalAnalysis)
 - [R에서 한글문서 열때 인코딩 문제 해결](http://philogrammer.com/2017-03-15/encoding)
 
-***
-
 > `데이터 시각화`를 위한 참고 자료
 - [R Shiny를 이용한 데이터 시각화](https://rstudio.github.io/shinydashboard/index.html)
 - [R을 위한 대화형 대시보드 제작](http://rmarkdown.rstudio.com/flexdashboard/)
