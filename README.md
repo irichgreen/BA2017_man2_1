@@ -72,3 +72,6 @@
 - [R을 위한 다이나믹 차트 구현](http://rstudio.github.io/crosstalk/)
 - [JavaScript 데이터 시각화를 R과 연동](http://www.htmlwidgets.org/)
 
+> 기타 유용한 참고 자료
+- [R 코딩 스타일 가이드](http://rpubs.com/jmhome/R_CodingStyle)
+
