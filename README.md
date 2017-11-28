@@ -13,6 +13,8 @@
 |img|시각화 파일을 담는 폴더|
 |RMD|RMarkdown을 담는 폴더|
 
+***
+
 > **1조 데이터 분석 개요**
 
 * 개요 : 한국수자원 공사에서 제공하는 경기도 지역 정수장 Data (공공)
@@ -33,8 +35,9 @@
   + Variables : 압력 / 수위 / 유량 / 유량적산차
   + 외부 Data 활용 : 수원 지역 일별 강수량 Data
   
+***
 
-> 데이터 분석을 위한 참고 자료
+> `데이터 분석`을 위한 참고 자료
 - [R에서 자유자재로 데이터 가공하기](http://rpubs.com/jmhome/R_data_wrangling)
 - [R에서 데이터 정제하기 (결측치,이상치)](http://rpubs.com/jmhome/R_data_processing)
 - [R에서 통계기법을 이용한 가설 검정](http://rpubs.com/jmhome/StatisticalAnalysis)
@@ -42,7 +45,7 @@
 
 ***
 
-> 데이터 시각화를 위한 참고 자료
+> `데이터 시각화`를 위한 참고 자료
 - [R Shiny를 이용한 데이터 시각화](https://rstudio.github.io/shinydashboard/index.html)
 - [R을 위한 대화형 대시보드 제작](http://rmarkdown.rstudio.com/flexdashboard/)
 - [R을 위한 다이나믹 차트 구현](http://rstudio.github.io/crosstalk/)
