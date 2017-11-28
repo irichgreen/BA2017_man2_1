@@ -44,10 +44,9 @@
 - [R에서 한글문서 열때 인코딩 문제 해결](http://philogrammer.com/2017-03-15/encoding)
 
 > `데이터 시각화`를 위한 참고 자료
+- [샤이니 보드를 활용한 Interactive Chart 구현](https://www.slideshare.net/r-kor/ruck-2017-interactive-chart)
 - [R Shiny를 이용한 데이터 시각화](https://rstudio.github.io/shinydashboard/index.html)
 - [R을 위한 대화형 대시보드 제작](http://rmarkdown.rstudio.com/flexdashboard/)
 - [R을 위한 다이나믹 차트 구현](http://rstudio.github.io/crosstalk/)
 - [JavaScript 데이터 시각화를 R과 연동](http://www.htmlwidgets.org/)
-
-
 
