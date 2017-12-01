@@ -1,0 +1,272 @@
+---
+title: '수도정보 분석을 통한 수질 최적화'
+author: '빅데이터아케데미 제조 융합과정 2기 1조'
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    number_sections: true
+    fig_caption: true
+    toc: true
+    fig_width: 7
+    fig_height: 4.5
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+---
+
+> 분석 개요
+
+* **데이터 소스** : 한국수자원공사 제공하는 경기도 지역 정수장 데이터
+* **갱신 주기** : 1시간 단위 (2016년 1년간 Data 분석 예정, 8460 rows)
+* **변수 종류**
+  + `발생일시` : 년 / 월 / 일 / 시
+  + `시설명` : 8개소 (고양/덕소/반월/성남/수원/수지/시흥/와부/일산)
+  + `수위` : 정수장 내 수위 (m, 정수장 별 2~3개 tag)
+  + `압력` : 정수장 유입 원수에 대한 유입 압력 (kg/cm2)
+  + `유량` : 공업/생활 유출수에 대한 유량 (m3/h, 정수장 별 2~3개 tag)
+  + `유량 적산차` : 시간별 유출되는 유출수의 volume (m3, 정수장 별 2~3개 tag)
+  + `pH` : 용수의 pH 측정값 (Control Range : 5.8 ~ 8.5)
+  + `탁도(NTU)` : 용수의 탁도 측정값 (Control Range : 0.5 이하)
+  + `잔류염소(mg/L)` : 용수의 잔류염소 측정값 (Control Range : 0.1 ~ 4.0)
+* **활용 데이터**
+  + 수질 데이터 : 탁도, 잔류염소 (낮을수록 우수한 품질)
+* pH는 잔류염소와 강한 상관관계가 있어 제외하여도 무관한 것으로 판단되며, Control Range 이내로 관리하면 되고 측정값 중 우수한 값을 정의할 수 없음
+  + **Variables** : 압력 / 수위 / 유량 / 유량적산차
+  + **외부 Data 활용** : 수원 지역 일별 강수량
+
+---
+
+# 분석환경 준비
+
+## 기본 환경 설정
+```{r setup}
+knitr::opts_chunk$set(echo=TRUE, error=FALSE)
+```
+
+## 필수 패키지 적재
+
+```{r, message = FALSE}
+library(readxl)       # 데이터 수집
+library(dplyr)        # 데이터 가공
+library(reshape2)     # 데이터 가공
+library(psych)        # 통계
+library(corrplot)     # 통계
+library(ggplot2)      # 시각화
+library(gridExtra)    # 시각화
+library(RColorBrewer) # 시각화
+library(plotly)       # 시각화
+
+## 플롯 한글깨짐 방지 설정
+par(family = "NanumGothic")
+theme_set(theme_gray(base_family='NanumGothic')) 
+
+```
+
+# 데이터 수집
+
+한국수원공사(K-Water)에 취득한 압력, 수질, 유량 등이 포함되 데이터와 기상청 공공데이터에서 취득한 강수량 자료를 수집 함 
+
+* data 중 0인 값은 모두 제거하고 필요한 값만 불러옴
+* pH / 탁도 / 잔류염소 : `수질 관련 Data`
+* 강수량 : 인접한 수원 `지역 강수량 공공데이터` 활용
+* 계절 : 월 기준 계절 구분 (1:봄, 2:여름, 3:가을, 4:겨울)
+
+```{r}
+dataset <- read_excel("../data/와부 정수.xlsx")
+rain <- read_excel("../data/서울강수량.xlsx")
+
+dataset <- dataset %>% mutate(일자 = substr(발생일시, 1, 8))
+rain$일자 <- as.character(rain$일자)
+season_num <- c(4, 4, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4)
+
+water_origin <- left_join(dataset, rain, by = "일자") %>%
+  mutate(발생월 = as.integer(substr(발생일시, 5, 6))) %>%
+  mutate(발생일 = as.integer(substr(발생일시, 7, 8))) %>%
+  mutate(발생시간 = as.integer(substr(발생일시, 9, 10))) %>%
+  mutate(계절 = season_num[as.integer(발생월)]) %>%
+  select("발생월", "발생일", "발생시간", "압력1", 
+         "수위1", "수위2", "유량1", "유량2", "강수량", 
+         "계절", "PH", "탁도", "잔류염소") %>%
+  filter(PH != 0 & 탁도 != 0 & 잔류염소 != 0 & 
+           압력1 != 0 & 수위1 != 0 & 수위2 != 0 & 
+           유량1 != 0 & 유량2 != 0) %>%
+  arrange(발생월, 발생일, 발생시간)
+
+water <- water_origin
+
+```
+
+# 데이터 정제
+
+## 데이터의 구조 및 기초통계 확인
+
+```{r}
+glimpse(water)
+summary(water)
+
+```
+
+## 변수별 이상치 및 결측치 제거
+
+```{r}
+opar <- par(mfrow = c(2,3))
+
+# 압력1 이상치 제거
+stat <- boxplot(water$압력1, horizontal = T)$stats  # Boxplot 기초통계
+stat
+out_below <- stat[1, 1]  # 아래쪽 극단치 경계
+out_upper <- stat[5, 1]  # 위쪽 극단치 경계
+out_below; out_upper
+
+water$압력1 <- ifelse(water$압력1 < out_below |
+                      water$압력1 > out_upper, NA, water$압력1 )
+
+table(is.na(water$압력1))
+
+# 수위1 이상치 제거
+stat <- boxplot(water$수위1, horizontal = T)$stats  # Boxplot 기초통계
+stat
+out_below <- stat[1, 1]  # 아래쪽 극단치 경계
+out_upper <- stat[5, 1]  # 위쪽 극단치 경계
+out_below; out_upper
+
+water$수위1 <- ifelse(water$수위1 < out_below |
+                      water$수위1 > out_upper, NA, water$수위1 )
+
+table(is.na(water$수위1))
+
+# 수위2 이상치 제거
+stat <- boxplot(water$수위2, horizontal = T)$stats  # Boxplot 기초통계
+stat
+out_below <- stat[1, 1]  # 아래쪽 극단치 경계
+out_upper <- stat[5, 1]  # 위쪽 극단치 경계
+out_below; out_upper
+
+water$수위2 <- ifelse(water$수위2 < out_below |
+                      water$수위2 > out_upper, NA, water$수위2 )
+
+table(is.na(water$수위2))
+
+# 유량1 이상치 제거
+stat <- boxplot(water$유량1, horizontal = T)$stats  # Boxplot 기초통계
+stat
+out_below <- stat[1, 1]  # 아래쪽 극단치 경계
+out_upper <- stat[5, 1]  # 위쪽 극단치 경계
+out_below; out_upper
+
+water$유량1 <- ifelse(water$유량1 < out_below |
+                      water$유량1 > out_upper, NA, water$유량1 )
+
+table(is.na(water$유량1))
+
+# 유량2 이상치 제거
+stat <- boxplot(water$유량2, horizontal = T)$stats  # Boxplot 기초통계
+stat
+out_below <- stat[1, 1]  # 아래쪽 극단치 경계
+out_upper <- stat[5, 1]  # 위쪽 극단치 경계
+out_below; out_upper
+
+water$유량2 <- ifelse(water$유량2 < out_below |
+                      water$유량2 > out_upper, NA, water$유량2 )
+
+table(is.na(water$유량2))
+
+par(opar)
+opar <- par(mfrow = c(2,3))
+
+boxplot(water$압력1, horizontal = T)
+boxplot(water$수위1, horizontal = T)
+boxplot(water$수위2, horizontal = T)
+boxplot(water$유량1, horizontal = T)
+boxplot(water$유량2, horizontal = T)
+
+par(opar)
+
+# 결측치(NA) 제거
+water_new <- water %>% 
+  filter(!is.na(압력1) & !is.na(수위1) & !is.na(수위2) & 
+           !is.na(유량1) & !is.na(유량2))
+
+glimpse(water_new)
+```
+
+# 데이터 분석
+
+## 상관관계 분석
+
+```{r}
+WaterCorr <- cor(water_new)
+corrplot(WaterCorr,method = "square")
+```
+
+## 단순회귀분석
+
+* `종속변수` : 탁도
+* `독립변수` : 압력1, 수위1, 수위2, 유량2
+
+```{r, message = FALSE}
+p1 <- water_new %>% 
+  ggplot(aes(유량2, 탁도)) + geom_count(alpha = .5) + 
+  geom_smooth(method = "lm")
+
+ggplotly(p1)
+
+p2 <- water_new %>% 
+  ggplot(aes(수위1, 탁도)) + geom_count(alpha = .5) + 
+  geom_smooth(method = "lm")
+
+ggplotly(p2)
+
+p3 <- water_new %>%
+  ggplot(aes(수위2, 탁도)) + geom_count(alpha = .5) + 
+  geom_smooth(method = "lm")
+
+ggplotly(p3)
+
+p4 <- water_new %>%
+  ggplot(aes(압력1, 탁도)) + geom_count(alpha = .5) + 
+  geom_smooth(method = "lm")
+
+ggplotly(p4)
+
+grid.arrange(p1, p2, p3, p4, ncol=2, nrow=2)
+
+# 단순회귀분석 정확도 분석 (탁도기준)
+s0 <- lm(formula = 탁도 ~ 유량2, data = water_new) # 24.7%
+summary(s0)
+
+s1 <- lm(formula = 탁도 ~ 수위1, data = water_new) # 0.24%
+summary(s1)
+
+s2 <- lm(formula = 탁도 ~ 수위2, data = water_new) # 3.94%
+summary(s2)
+
+s3 <- lm(formula = 탁도 ~ 압력1, data = water_new) # 11.5%
+summary(s3)
+```
+
+## 다중회귀분석
+
+```{r}
+### 다중회귀분석 (탁도기준)
+x0 <- lm(탁도~유량1 + 유량2 + 수위1 + 수위2 + 압력1, data = water_new) #유의한 인자 찾기 1
+anova(x0) # 유량1 유의하지 않은 인자로 확인되어 제외
+
+x1 <- lm(탁도~유량2 + 수위1 + 수위2 + 압력1, data = water_new)
+anova(x0, x1) #유량1 제외시 회귀분석 결과가 보다 정확해진다 함
+anova(x1)
+summary(x1) #회귀식이 34.1% 정도 정확도를 갖게 됨
+
+x2 <- lm(탁도~유량2 + 수위2 + 압력1, data = water_new) #수위1이 피벨류가 제일 높아 제외하고 돌려봄
+anova(x1, x2) #수위1을 빼지 말라고 함 / 수위1가 유의한 인자라고 함
+
+opar <- par(mfrow=c(2,2))
+
+plot(x1)
+
+par(opar)
+```
+
+---
+
+Have fun!
